@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<datafile xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://datomatic.no-intro.org/stuff https://datomatic.no-intro.org/stuff/schema_nointro_datfile_v3.xsd">
+	<header>
+		<id>46</id>
+		<name>Nintendo - Game Boy</name>
+		<description>Nintendo - Game Boy</description>
+		<version>20260223-145751</version>
+		<author>aci68, akubi, Arctic Circle System, Aringon, baldjared, Bent, BigFred, BitLooter, buckwheat, C. V. Reynolds, chillerecke, darthcloud, DeadSkullzJr, Densetsu, DeriLoko3, ElBarto, foxe, fuzzball, Gefflon, Goratrix, Hiccup, hking0036, InternalLoss, Jack, jimmsu, Just001Kim, kazumi213, leekindo, Lesserkuma, Madeline, NESBrew12, NGEfreak, nnssxx, norkmetnoil577, NovaAurora, number, omonim2007, Powerpuff, PPLToast, Psychofox11, psykopat, rarenight, relax, RetroUprising, rpg2813, sCZther, SonGoku, Tauwasser, togemet2, UnlockerPT, xNo, xprism, xuom2</author>
+		<homepage>No-Intro</homepage>
+		<url>https://www.no-intro.org</url>
+		<clrmamepro forcenodump="required"/>
+	</header>
+	<game name="[BIOS] Maxstation Boot ROM (China) (En) (Unl)" id="2130" cloneofid="1612">
+		<description>[BIOS] Maxstation Boot ROM (China) (En) (Unl)</description>
+		<rom name="[BIOS] Maxstation Boot ROM (China) (En) (Unl).gb" size="256" crc="783e69c2" md5="77a7021db824010a678791f6d062943d" sha1="1776bd61b8db71fc4c4d4b5feab4a21b3c1fd95b" sha256="27e4bee8a8fddc80d48393a51fd9cdf33abc981a795f6aecc59a03a12daff881"/>
+	</game>
+	<game name="[BIOS] Nintendo Game Boy Boot ROM (World) (Rev 1)" id="0006">
+		<description>[BIOS] Nintendo Game Boy Boot ROM (World) (Rev 1)</description>
+		<rom name="[BIOS] Nintendo Game Boy Boot ROM (World) (Rev 1).gb" size="256" crc="59c8598e" md5="32fbbd84168d3482956eb3c5051637f5" sha1="4ed31ec6b0b175bb109c0eb5fd3d193da823339f" sha256="cf053eccb4ccafff9e67339d4e78e98dce7d1ed59be819d2a1ba2232c6fce1c7" status="verified"/>
+	</game>
+	<game name="[BIOS] Nintendo Game Boy Boot ROM (Japan) (En)" id="1612" cloneofid="0006">
+		<description>[BIOS] Nintendo Game Boy Boot ROM (Japan) (En)</description>
+		<rom name="[BIOS] Nintendo Game Boy Boot ROM (Japan) (En).gb" size="256" crc="c2f5cc97" md5="a8f84a0ac44da5d3f0ee19f9cea80a8c" sha1="8bd501e31921e9601788316dbd3ce9833a97bcbc" sha256="26e71cf01e301e5dc40e987cd2ecbf6d0276245890ac829db2a25323da86818e" status="verified"/>
+	</game>
+	<game name="[BIOS] Nintendo Game Boy Pocket Boot ROM (World)" id="1614">
+		<description>[BIOS] Nintendo Game Boy Pocket Boot ROM (World)</description>
+		<rom name="[BIOS] Nintendo Game Boy Pocket Boot ROM (World).gb" size="256" crc="e6920754" md5="71a378e71ff30b2d8a1f02bf5c7896aa" sha1="4e68f9da03c310e84c523654b9026e51f26ce7f0" sha256="a8cb5f4f1f16f2573ed2ecd8daedb9c5d1dd2c30a481f9b179b5d725d95eafe2" status="verified"/>
+	</game>
+	<game name="10-Pin Bowling (USA) (Proto)" id="1844">
+		<category>Games</category>
+		<category>Preproduction</category>
+		<description>10-Pin Bowling (USA) (Proto)</description>
+		<rom name="10-Pin Bowling (USA) (Proto).gb" size="131072" crc="9a024415" md5="7616285ddcb0a1834770cacd20c2b2fe" sha1="952d154dd2c6189ef4b786ae37bd7887c8ca9037" sha256="2920c755dea482c7e465cce62ee54ccdc103181b18a867fac289d0cd68b5d262"/>
+	</game>
+	<game name="3 Choume no Tama - Tama and Friends - 3 Choume Obake Panic!! (Japan)" id="0001">
+		<description>3 Choume no Tama - Tama and Friends - 3 Choume Obake Panic!! (Japan)</description>
+		<rom name="3 Choume no Tama - Tama and Friends - 3 Choume Obake Panic!! (Japan).gb" size="131072" crc="b61cd120" md5="93cea7134db2a28b06d30729ad460dd6" sha1="0982bcc82deb9c4db08e602a22a2bb4f31e7e6ae" sha256="efb642a031e175a07be768e8146ded4841ca599fa69b985ffcb69b555dc17cb4"/>
+	</game>
+	<game name="3-pun Yosou - Umaban Club (Japan)" id="0002">
+		<description>3-pun Yosou - Umaban Club (Japan)</description>
+		<rom name="3-pun Yosou - Umaban Club (Japan).gb" size="65536" crc="cafe0d2b" md5="d4ebf9cf10dda19dd2bafd1c1673d762" sha1="76643f3f3481f7e515a24482779870862dd8b373" sha256="b34c4040a99d528b07195719daa9a15c569af8b3addd22124a782f94c71aa86a"/>
+	</game>
+	<game name="4 in 1 (Europe) (4B-002, Sachen) (Unl)" id="1558">
+		<description>4 in 1 (Europe) (4B-002, Sachen) (Unl)</description>
+		<rom name="4 in 1 (Europe) (4B-002, Sachen) (Unl).gb" size="65536" crc="5e438db8" md5="53797d020821b171f9909bc300ed5ad1" sha1="d9cb1721854709be7667f5dbce0adf2488c0919b" sha256="cbdafad0b0c18332ae3d2213fbf92f5243ffb68ccd32f266010d6b1479fc1daa" status="verified"/>
+	</game>
+	<game name="4 in 1 (Europe) (4B-005, Sachen-Commin) (Unl)" id="1579">
+		<description>4 in 1 (Europe) (4B-005, Sachen-Commin) (Unl)</description>
+		<rom name="4 in 1 (Europe) (4B-005, Sachen-Commin) (Unl).gb" size="262144" crc="f4310eb3" md5="2dfaeaf059179602d692b92ebb9a1dfe" sha1="2107979104cff88bcd635215a936bbc44354ea7c" sha256="4d73e91daeb99d7d54843a3780933ff0dea21db6e5711b18a0d3b33bf2a19d83" status="verified"/>
+	</game>
+</datafile>

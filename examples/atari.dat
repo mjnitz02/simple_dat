@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<datafile xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://datomatic.no-intro.org/stuff https://datomatic.no-intro.org/stuff/schema_nointro_datfile_v3.xsd">
+	<header>
+		<id>88</id>
+		<name>Atari - Atari 2600</name>
+		<description>Atari - Atari 2600</description>
+		<version>20260216-104743</version>
+		<author>ajshell1, Arctic Circle System, bikerspade, C. V. Reynolds, FakeShemp, Flashfire42, Gefflon, Hiccup, nnssxx, number, omonim2007, Psychofox11, psykopat, rarenight, relax, RetroUprising, root, smesgr, SonGoku, xuom2</author>
+		<homepage>No-Intro</homepage>
+		<url>https://www.no-intro.org</url>
+		<clrmamepro forcenodump="required"/>
+	</header>
+	<game name="3-D Genesis (USA) (Proto)" id="0595">
+		<description>3-D Genesis (USA) (Proto)</description>
+		<rom name="3-D Genesis (USA) (Proto).a26" size="8192" crc="931a0bdc" md5="cac9928a84e1001817b223f0cecaa3f2" sha1="0e146e5eb1a68cba4f8fa55ec6f125438efcfcb4"/>
+	</game>
+	<game name="3-D Ghost Attack (USA) (Proto)" id="0596">
+		<description>3-D Ghost Attack (USA) (Proto)</description>
+		<rom name="3-D Ghost Attack (USA) (Proto).a26" size="16384" crc="11396d94" md5="fcbdf405f0fc2027b0ea45bb5af94c1a" sha1="29e431c27ddb8649ec3f15966011505822907139"/>
+	</game>
+	<game name="3-D Havoc (USA) (Proto)" id="0597">
+		<description>3-D Havoc (USA) (Proto)</description>
+		<rom name="3-D Havoc (USA) (Proto).a26" size="8192" crc="f75ddad1" md5="60cd61a2dfccb0e2736434f9792c1672" sha1="ce616d66d4ed90ddc972ea22555df73f6b41af8c"/>
+	</game>
+	<game name="3-D Tic-Tac-Toe (USA)" id="0001" cloneofid="0624">
+		<description>3-D Tic-Tac-Toe (USA)</description>
+		<rom name="3-D Tic-Tac-Toe (USA).a26" size="2048" crc="58805709" md5="0db4f4150fecf77e4ce72ca4d04c052f" sha1="21d983f2f52b84c22ecae84b0943678ae2c31c10"/>
+	</game>
+	<game name="3-D Tic-Tac-Toe (Europe)" id="0624">
+		<description>3-D Tic-Tac-Toe (Europe)</description>
+		<rom name="3-D Tic-Tac-Toe (Europe).a26" size="2048" crc="7322ebc6" md5="e3600be9eb98146adafdc12d91323d0f" sha1="6b163aa967e4204a5bd98a59bd8e80f159004e34" status="verified"/>
+	</game>
+	<game name="3-D Zapper (USA) (Proto) (1982-12-15)" id="0598">
+		<description>3-D Zapper (USA) (Proto) (1982-12-15)</description>
+		<rom name="3-D Zapper (USA) (Proto) (1982-12-15).a26" size="4096" crc="93c49a58" md5="4f32b24869d8c1310fecf039c6424db6" sha1="5bef293d891747e790cc083f1d663efe372cec3b"/>
+	</game>
+	<game name="3-D Zapper (USA) (Proto) (Earlier)" id="0625" cloneofid="0598">
+		<description>3-D Zapper (USA) (Proto) (Earlier)</description>
+		<rom name="3-D Zapper (USA) (Proto) (Earlier).a26" size="4096" crc="4f405595" md5="50c7edc9f9dc0369abcdab3b4efeb5e9" sha1="af75d0e4b9c3f46d444121c9cf96ceb3a349fc1d"/>
+	</game>
+</datafile>
