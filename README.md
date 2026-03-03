@@ -1,11 +1,15 @@
 # SimpleDat
 
-A simple CLI tool for generating CLRMamePro-compatible DAT files from a folder of ROM files. The output format follows the No-Intro XML schema.
+A simple CLI tool for generating and merging CLRMamePro-compatible DAT files. The output format follows the No-Intro XML schema.
 
-## Usage
+## Commands
 
-```
-uv run main.py <folder> [-o output.dat]
+### `generate`
+
+Scan a folder of ROM files and produce a DAT file.
+
+```sh
+uv run main.py generate <folder> [-o output.dat]
 ```
 
 | Argument | Description |
@@ -16,10 +20,30 @@ uv run main.py <folder> [-o output.dat]
 **Example:**
 
 ```sh
-uv run main.py ~/roms/snes -o "Super Nintendo.dat"
+uv run main.py generate ~/roms/snes -o "Super Nintendo.dat"
 ```
 
-## How it works
+### `merge`
+
+Merge two existing No-Intro compatible DAT files into one. The header is taken from the first file, and all game entries from both files are combined and sorted alphabetically.
+
+```sh
+uv run main.py merge <file1.dat> <file2.dat> [-o output.dat]
+```
+
+| Argument | Description |
+|---|---|
+| `file1` | First DAT file — its header is used in the output |
+| `file2` | Second DAT file |
+| `-o`, `--output` | Output file path (default: `merged.dat`) |
+
+**Example:**
+
+```sh
+uv run main.py merge "Nintendo - NES.dat" "Nintendo - Famicom.dat" -o "NES Merged.dat"
+```
+
+## How `generate` works
 
 ### Plain files
 

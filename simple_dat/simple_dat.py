@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import sys
 import zipfile
@@ -103,3 +104,26 @@ class SimpleDat:
 
         ET.indent(root, space="\t")
         return '<?xml version="1.0"?>\n' + ET.tostring(root, encoding="unicode") + "\n"
+
+    @staticmethod
+    def merge(file1: Path, file2: Path) -> str:
+        root1 = ET.parse(file1).getroot()
+        root2 = ET.parse(file2).getroot()
+
+        out = ET.Element("datafile")
+        out.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+        out.set(
+            "xsi:schemaLocation",
+            "https://datomatic.no-intro.org/stuff "
+            "https://datomatic.no-intro.org/stuff/schema_nointro_datfile_v3.xsd",
+        )
+
+        out.append(copy.deepcopy(root1.find("header")))
+
+        games = root1.findall("game") + root2.findall("game")
+        games.sort(key=lambda g: g.get("name", "").casefold())
+        for game in games:
+            out.append(copy.deepcopy(game))
+
+        ET.indent(out, space="\t")
+        return '<?xml version="1.0"?>\n' + ET.tostring(out, encoding="unicode") + "\n"

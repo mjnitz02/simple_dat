@@ -260,5 +260,119 @@ class TestGenerate(unittest.TestCase):
         self.assertEqual(self._parse().findall("game"), [])
 
 
+class TestMerge(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.tmpdir = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _make_dat(self, name: str, rom_files: list[str]) -> Path:
+        """Generate a DAT from a temporary folder of empty ROM files."""
+        folder = self.tmpdir / name
+        folder.mkdir()
+        for f in rom_files:
+            (folder / f).write_bytes(b"data")
+        dat_path = self.tmpdir / f"{name}.dat"
+        dat_path.write_text(SimpleDat.generate(folder))
+        return dat_path
+
+    def _make_dat_with_header(self, filename: str, header_name: str, games: list[str]) -> Path:
+        """Write a minimal DAT file with a specific header name for testing header selection."""
+        path = self.tmpdir / filename
+        root = ET.Element("datafile")
+        header = ET.SubElement(root, "header")
+        ET.SubElement(header, "name").text = header_name
+        ET.SubElement(header, "description").text = header_name
+        ET.SubElement(header, "version").text = "20260101-000000"
+        ET.SubElement(header, "author").text = "Test"
+        ET.SubElement(header, "homepage").text = "Test"
+        clrmamepro = ET.SubElement(header, "clrmamepro")
+        clrmamepro.set("forcenodump", "required")
+        for game_name in games:
+            game = ET.SubElement(root, "game")
+            game.set("name", game_name)
+            ET.SubElement(game, "description").text = game_name
+            rom = ET.SubElement(game, "rom")
+            rom.set("name", f"{game_name}.rom")
+            rom.set("size", "0")
+            rom.set("crc", "00000000")
+            rom.set("md5", "d41d8cd98f00b204e9800998ecf8427e")
+            rom.set("sha1", "da39a3ee5e6b4b0d3255bfef95601890afd80709")
+            rom.set("sha256", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+            rom.set("status", "verified")
+        ET.indent(root, space="\t")
+        path.write_text('<?xml version="1.0"?>\n' + ET.tostring(root, encoding="unicode") + "\n")
+        return path
+
+    def _parse(self, dat1: Path, dat2: Path) -> ET.Element:
+        return ET.parse(io.StringIO(SimpleDat.merge(dat1, dat2))).getroot()
+
+    def test_header_taken_from_first_file(self):
+        dat1 = self._make_dat_with_header("a.dat", "First Set", ["Zelda"])
+        dat2 = self._make_dat_with_header("b.dat", "Second Set", ["Mario"])
+        self.assertEqual(self._parse(dat1, dat2).find("header/name").text, "First Set")
+
+    def test_header_not_taken_from_second_file(self):
+        dat1 = self._make_dat_with_header("a.dat", "First Set", ["Zelda"])
+        dat2 = self._make_dat_with_header("b.dat", "Second Set", ["Mario"])
+        self.assertNotEqual(self._parse(dat1, dat2).find("header/name").text, "Second Set")
+
+    def test_games_from_both_files_present(self):
+        dat1 = self._make_dat("set1", ["Zelda.sfc"])
+        dat2 = self._make_dat("set2", ["Mario.sfc"])
+        names = {g.get("name") for g in self._parse(dat1, dat2).findall("game")}
+        self.assertIn("Zelda", names)
+        self.assertIn("Mario", names)
+
+    def test_total_game_count(self):
+        dat1 = self._make_dat("set1", ["Zelda.sfc", "Link.sfc"])
+        dat2 = self._make_dat("set2", ["Mario.sfc"])
+        self.assertEqual(len(self._parse(dat1, dat2).findall("game")), 3)
+
+    def test_games_sorted_alphabetically(self):
+        dat1 = self._make_dat("set1", ["Zelda.sfc", "Castlevania.sfc"])
+        dat2 = self._make_dat("set2", ["Mario.sfc", "Aladdin.sfc"])
+        names = [g.get("name") for g in self._parse(dat1, dat2).findall("game")]
+        self.assertEqual(names, sorted(names, key=str.casefold))
+
+    def test_sort_is_case_insensitive(self):
+        dat1 = self._make_dat_with_header("a.dat", "A", ["mario"])
+        dat2 = self._make_dat_with_header("b.dat", "B", ["Zelda"])
+        names = [g.get("name") for g in self._parse(dat1, dat2).findall("game")]
+        self.assertEqual(names, ["mario", "Zelda"])
+
+    def test_rom_entries_preserved(self):
+        dat1 = self._make_dat("set1", ["Zelda.sfc"])
+        dat2 = self._make_dat("set2", ["Mario.sfc"])
+        root = self._parse(dat1, dat2)
+        for game in root.findall("game"):
+            rom = game.find("rom")
+            self.assertIsNotNone(rom)
+            for attr in ("crc", "md5", "sha1", "sha256", "size", "status"):
+                self.assertIsNotNone(rom.get(attr), f"rom in {game.get('name')} missing {attr}")
+
+    def test_output_is_valid_xml(self):
+        dat1 = self._make_dat("set1", ["Zelda.sfc"])
+        dat2 = self._make_dat("set2", ["Mario.sfc"])
+        xml = SimpleDat.merge(dat1, dat2)
+        self.assertTrue(xml.startswith('<?xml version="1.0"?>'))
+        # Should parse without error
+        ET.parse(io.StringIO(xml))
+
+    def test_empty_first_file(self):
+        dat1 = self._make_dat("set1", [])
+        dat2 = self._make_dat("set2", ["Mario.sfc"])
+        names = {g.get("name") for g in self._parse(dat1, dat2).findall("game")}
+        self.assertEqual(names, {"Mario"})
+
+    def test_empty_second_file(self):
+        dat1 = self._make_dat("set1", ["Zelda.sfc"])
+        dat2 = self._make_dat("set2", [])
+        names = {g.get("name") for g in self._parse(dat1, dat2).findall("game")}
+        self.assertEqual(names, {"Zelda"})
+
+
 if __name__ == "__main__":
     unittest.main()
