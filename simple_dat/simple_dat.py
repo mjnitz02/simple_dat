@@ -71,6 +71,21 @@ class SimpleDat:
         return game_name, roms
 
     @staticmethod
+    def process_folder(folder_path: Path) -> tuple[str, list[dict]]:
+        game_name = folder_path.name
+        roms = []
+        for file_path in sorted(f for f in folder_path.iterdir() if f.is_file()):
+            data = file_path.read_bytes()
+            roms.append(
+                {
+                    "name": file_path.name,
+                    "size": len(data),
+                    "hashes": SimpleDat.hashes(data),
+                }
+            )
+        return game_name, roms
+
+    @staticmethod
     def generate(folder: Path) -> str:
         root = ET.Element("datafile")
         root.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
@@ -89,14 +104,22 @@ class SimpleDat:
         clrmamepro = ET.SubElement(header, "clrmamepro")
         clrmamepro.set("forcenodump", "required")
 
-        for file_path in sorted(f for f in folder.iterdir() if f.is_file()):
+        children = sorted(folder.iterdir(), key=lambda p: p.name)
+        use_dirs = any(p.is_dir() for p in children)
+        candidates = [p for p in children if p.is_dir()] if use_dirs else [p for p in children if p.is_file()]
+        total = len(candidates)
+
+        for i, child in enumerate(candidates, 1):
+            print(f"[{i}/{total}] {child.name}", file=sys.stderr)
             try:
-                if file_path.suffix.lower() == ".zip":
-                    name, roms = SimpleDat.process_zip(file_path)
+                if use_dirs:
+                    name, roms = SimpleDat.process_folder(child)
+                elif child.suffix.lower() == ".zip":
+                    name, roms = SimpleDat.process_zip(child)
                 else:
-                    name, roms = SimpleDat.process_file(file_path)
+                    name, roms = SimpleDat.process_file(child)
             except Exception as e:
-                print(f"Warning: skipping {file_path.name}: {e}", file=sys.stderr)
+                print(f"Warning: skipping {child.name}: {e}", file=sys.stderr)
                 continue
 
             if roms:
@@ -104,6 +127,67 @@ class SimpleDat:
 
         ET.indent(root, space="\t")
         return '<?xml version="1.0"?>\n' + ET.tostring(root, encoding="unicode") + "\n"
+
+    @staticmethod
+    def _goes_to_split1(game_name: str) -> bool:
+        if "(Japan)" not in game_name:
+            return True
+        return "(En)" in game_name or "(En," in game_name
+
+    @staticmethod
+    def split(dat_file: Path) -> tuple[str, str]:
+        root = ET.parse(dat_file).getroot()
+        header = root.find("header")
+
+        def make_out() -> ET.Element:
+            out = ET.Element("datafile")
+            out.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+            out.set(
+                "xsi:schemaLocation",
+                "https://datomatic.no-intro.org/stuff "
+                "https://datomatic.no-intro.org/stuff/schema_nointro_datfile_v3.xsd",
+            )
+            out.append(copy.deepcopy(header))
+            return out
+
+        out1, out2 = make_out(), make_out()
+
+        for game in root.findall("game"):
+            name = game.get("name", "")
+            target = out1 if SimpleDat._goes_to_split1(name) else out2
+            target.append(copy.deepcopy(game))
+
+        def serialise(tree: ET.Element) -> str:
+            ET.indent(tree, space="\t")
+            return '<?xml version="1.0"?>\n' + ET.tostring(tree, encoding="unicode") + "\n"
+
+        return serialise(out1), serialise(out2)
+
+    @staticmethod
+    def prune(folder: Path, dat_file: Path) -> tuple[str, int, int]:
+        folder_stems = {f.stem for f in folder.iterdir() if f.is_file()}
+
+        root = ET.parse(dat_file).getroot()
+
+        out = ET.Element("datafile")
+        out.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+        out.set(
+            "xsi:schemaLocation",
+            "https://datomatic.no-intro.org/stuff "
+            "https://datomatic.no-intro.org/stuff/schema_nointro_datfile_v3.xsd",
+        )
+        out.append(copy.deepcopy(root.find("header")))
+
+        kept = removed = 0
+        for game in root.findall("game"):
+            if game.get("name", "") in folder_stems:
+                out.append(copy.deepcopy(game))
+                kept += 1
+            else:
+                removed += 1
+
+        ET.indent(out, space="\t")
+        return '<?xml version="1.0"?>\n' + ET.tostring(out, encoding="unicode") + "\n", kept, removed
 
     @staticmethod
     def merge(file1: Path, file2: Path) -> str:
@@ -122,7 +206,12 @@ class SimpleDat:
 
         games = root1.findall("game") + root2.findall("game")
         games.sort(key=lambda g: g.get("name", "").casefold())
+        seen = set()
         for game in games:
+            name = game.get("name", "")
+            if name in seen:
+                continue
+            seen.add(name)
             out.append(copy.deepcopy(game))
 
         ET.indent(out, space="\t")

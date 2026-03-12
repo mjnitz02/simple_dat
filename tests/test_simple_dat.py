@@ -145,6 +145,59 @@ class TestProcessZip(unittest.TestCase):
         self.assertEqual(set(roms[0]["hashes"].keys()), {"crc", "md5", "sha1", "sha256"})
 
 
+class TestProcessFolder(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.tmpdir = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _make_folder(self, folder_name: str, files: dict) -> Path:
+        path = self.tmpdir / folder_name
+        path.mkdir()
+        for name, data in files.items():
+            (path / name).write_bytes(data)
+        return path
+
+    def test_game_name_is_folder_name(self):
+        path = self._make_folder("Game Pack", {"A.gb": b"a"})
+        name, _ = SimpleDat.process_folder(path)
+        self.assertEqual(name, "Game Pack")
+
+    def test_rom_count_matches_file_count(self):
+        path = self._make_folder("Pack", {"A.gb": b"a", "B.gb": b"b", "C.gb": b"c"})
+        _, roms = SimpleDat.process_folder(path)
+        self.assertEqual(len(roms), 3)
+
+    def test_roms_sorted_alphabetically(self):
+        path = self._make_folder("Pack", {"C.gb": b"c", "A.gb": b"a", "B.gb": b"b"})
+        _, roms = SimpleDat.process_folder(path)
+        self.assertEqual([r["name"] for r in roms], ["A.gb", "B.gb", "C.gb"])
+
+    def test_rom_size(self):
+        data = b"x" * 512
+        path = self._make_folder("Pack", {"Game.gb": data})
+        _, roms = SimpleDat.process_folder(path)
+        self.assertEqual(roms[0]["size"], 512)
+
+    def test_rom_hashes_correct(self):
+        data = b"known content"
+        path = self._make_folder("Pack", {"Game.gb": data})
+        _, roms = SimpleDat.process_folder(path)
+        self.assertEqual(roms[0]["hashes"], SimpleDat.hashes(data))
+
+    def test_rom_hashes_keys_present(self):
+        path = self._make_folder("Pack", {"Game.gb": b"data"})
+        _, roms = SimpleDat.process_folder(path)
+        self.assertEqual(set(roms[0]["hashes"].keys()), {"crc", "md5", "sha1", "sha256"})
+
+    def test_empty_folder_returns_no_roms(self):
+        path = self._make_folder("Empty", {})
+        _, roms = SimpleDat.process_folder(path)
+        self.assertEqual(roms, [])
+
+
 class TestGenerate(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -257,6 +310,46 @@ class TestGenerate(unittest.TestCase):
         self.assertEqual(games[0].get("name"), "good")
 
     def test_empty_folder_produces_no_games(self):
+        self.assertEqual(self._parse().findall("game"), [])
+
+    def test_subfolder_produces_one_game_per_folder(self):
+        for name in ("Game A", "Game B"):
+            d = self.tmpdir / name
+            d.mkdir()
+            (d / "rom.gb").write_bytes(b"data")
+        self.assertEqual(len(self._parse().findall("game")), 2)
+
+    def test_subfolder_game_name_is_folder_name(self):
+        d = self.tmpdir / "Zelda (USA)"
+        d.mkdir()
+        (d / "rom.gb").write_bytes(b"data")
+        self.assertEqual(self._parse().find("game").get("name"), "Zelda (USA)")
+
+    def test_subfolder_roms_come_from_folder_contents(self):
+        d = self.tmpdir / "Pack"
+        d.mkdir()
+        (d / "A.gb").write_bytes(b"a")
+        (d / "B.gb").write_bytes(b"b")
+        self.assertEqual(len(self._parse().find("game").findall("rom")), 2)
+
+    def test_subfolder_rom_hashes_correct(self):
+        data = b"known content"
+        d = self.tmpdir / "Pack"
+        d.mkdir()
+        (d / "Game.gb").write_bytes(data)
+        rom = self._parse().find("game/rom")
+        self.assertEqual(rom.get("crc"), SimpleDat.hashes(data)["crc"])
+
+    def test_subfolders_sorted_alphabetically(self):
+        for name in ("Zelda", "Mario", "Castlevania"):
+            d = self.tmpdir / name
+            d.mkdir()
+            (d / "rom.gb").write_bytes(b"data")
+        names = [g.get("name") for g in self._parse().findall("game")]
+        self.assertEqual(names, sorted(names))
+
+    def test_empty_subfolder_produces_no_game(self):
+        (self.tmpdir / "Empty").mkdir()
         self.assertEqual(self._parse().findall("game"), [])
 
 
@@ -372,6 +465,317 @@ class TestMerge(unittest.TestCase):
         dat2 = self._make_dat("set2", [])
         names = {g.get("name") for g in self._parse(dat1, dat2).findall("game")}
         self.assertEqual(names, {"Zelda"})
+
+    def test_duplicate_game_appears_once(self):
+        dat1 = self._make_dat_with_header("a.dat", "A", ["Zelda", "Mario"])
+        dat2 = self._make_dat_with_header("b.dat", "B", ["Zelda", "Sonic"])
+        names = [g.get("name") for g in self._parse(dat1, dat2).findall("game")]
+        self.assertEqual(names.count("Zelda"), 1)
+
+    def test_duplicate_keeps_first_occurrence(self):
+        dat1 = self._make_dat_with_header("a.dat", "A", ["Zelda"])
+        # Give the duplicate in dat2 a distinguishable rom name via a custom dat
+        path = self.tmpdir / "b.dat"
+        root = ET.Element("datafile")
+        header = ET.SubElement(root, "header")
+        ET.SubElement(header, "name").text = "B"
+        ET.SubElement(header, "description").text = "B"
+        ET.SubElement(header, "version").text = "20260101-000000"
+        ET.SubElement(header, "author").text = "Test"
+        ET.SubElement(header, "homepage").text = "Test"
+        ET.SubElement(header, "clrmamepro").set("forcenodump", "required")
+        game = ET.SubElement(root, "game")
+        game.set("name", "Zelda")
+        ET.SubElement(game, "description").text = "Zelda"
+        rom = ET.SubElement(game, "rom")
+        rom.set("name", "Zelda_v2.rom")
+        rom.set("size", "0")
+        rom.set("crc", "ffffffff")
+        rom.set("md5", "d41d8cd98f00b204e9800998ecf8427e")
+        rom.set("sha1", "da39a3ee5e6b4b0d3255bfef95601890afd80709")
+        rom.set("sha256", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+        rom.set("status", "verified")
+        ET.indent(root, space="\t")
+        path.write_text('<?xml version="1.0"?>\n' + ET.tostring(root, encoding="unicode") + "\n")
+        result = self._parse(dat1, path)
+        zelda = result.find("game[@name='Zelda']")
+        self.assertNotEqual(zelda.find("rom").get("crc"), "ffffffff")
+
+
+class TestGoesToSplit1(unittest.TestCase):
+    def test_non_japan_goes_to_split1(self):
+        self.assertTrue(SimpleDat._goes_to_split1("Sonic the Hedgehog (USA)"))
+
+    def test_non_japan_no_region_goes_to_split1(self):
+        self.assertTrue(SimpleDat._goes_to_split1("Tetris"))
+
+    def test_japan_english_paren_goes_to_split1(self):
+        self.assertTrue(SimpleDat._goes_to_split1("Dragon Quest (Japan) (En)"))
+
+    def test_japan_english_comma_goes_to_split1(self):
+        self.assertTrue(SimpleDat._goes_to_split1("Final Fantasy (Japan) (En,Fr)"))
+
+    def test_japan_only_goes_to_split2(self):
+        self.assertFalse(SimpleDat._goes_to_split1("Dragon Quest (Japan)"))
+
+    def test_japan_japanese_language_goes_to_split2(self):
+        self.assertFalse(SimpleDat._goes_to_split1("Zelda no Densetsu (Japan) (Ja)"))
+
+    def test_japan_other_language_goes_to_split2(self):
+        self.assertFalse(SimpleDat._goes_to_split1("Game (Japan) (De)"))
+
+    def test_japan_in_name_but_not_tag_goes_to_split1(self):
+        # "Japan" appears in the title but not as the region tag
+        self.assertTrue(SimpleDat._goes_to_split1("Japan Adventure (USA)"))
+
+
+class TestSplit(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.tmpdir = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _make_dat(self, filename: str, header_name: str, games: list[str]) -> Path:
+        path = self.tmpdir / filename
+        root = ET.Element("datafile")
+        header = ET.SubElement(root, "header")
+        ET.SubElement(header, "name").text = header_name
+        ET.SubElement(header, "description").text = header_name
+        ET.SubElement(header, "version").text = "20260101-000000"
+        ET.SubElement(header, "author").text = "Test"
+        ET.SubElement(header, "homepage").text = "Test"
+        clrmamepro = ET.SubElement(header, "clrmamepro")
+        clrmamepro.set("forcenodump", "required")
+        for game_name in games:
+            game = ET.SubElement(root, "game")
+            game.set("name", game_name)
+            ET.SubElement(game, "description").text = game_name
+            rom = ET.SubElement(game, "rom")
+            rom.set("name", f"{game_name}.rom")
+            rom.set("size", "0")
+            rom.set("crc", "00000000")
+            rom.set("md5", "d41d8cd98f00b204e9800998ecf8427e")
+            rom.set("sha1", "da39a3ee5e6b4b0d3255bfef95601890afd80709")
+            rom.set("sha256", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+            rom.set("status", "verified")
+        ET.indent(root, space="\t")
+        path.write_text('<?xml version="1.0"?>\n' + ET.tostring(root, encoding="unicode") + "\n")
+        return path
+
+    def _parse_split(self, games: list[str]) -> tuple[ET.Element, ET.Element]:
+        dat = self._make_dat("input.dat", "Test Set", games)
+        xml1, xml2 = SimpleDat.split(dat)
+        return ET.parse(io.StringIO(xml1)).getroot(), ET.parse(io.StringIO(xml2)).getroot()
+
+    def test_both_outputs_are_valid_xml(self):
+        dat = self._make_dat("input.dat", "Test Set", ["Sonic (USA)", "Dragon Quest (Japan)"])
+        xml1, xml2 = SimpleDat.split(dat)
+        self.assertTrue(xml1.startswith('<?xml version="1.0"?>'))
+        self.assertTrue(xml2.startswith('<?xml version="1.0"?>'))
+        ET.parse(io.StringIO(xml1))
+        ET.parse(io.StringIO(xml2))
+
+    def test_headers_are_identical(self):
+        root1, root2 = self._parse_split(["Sonic (USA)", "Dragon Quest (Japan)"])
+        self.assertEqual(
+            ET.tostring(root1.find("header")),
+            ET.tostring(root2.find("header")),
+        )
+
+    def test_header_name_preserved(self):
+        root1, _ = self._parse_split(["Sonic (USA)"])
+        self.assertEqual(root1.find("header/name").text, "Test Set")
+
+    def test_non_japan_game_in_split1(self):
+        root1, _ = self._parse_split(["Sonic (USA)", "Dragon Quest (Japan)"])
+        names = {g.get("name") for g in root1.findall("game")}
+        self.assertIn("Sonic (USA)", names)
+
+    def test_non_japan_game_not_in_split2(self):
+        _, root2 = self._parse_split(["Sonic (USA)", "Dragon Quest (Japan)"])
+        names = {g.get("name") for g in root2.findall("game")}
+        self.assertNotIn("Sonic (USA)", names)
+
+    def test_japan_only_game_in_split2(self):
+        _, root2 = self._parse_split(["Sonic (USA)", "Dragon Quest (Japan)"])
+        names = {g.get("name") for g in root2.findall("game")}
+        self.assertIn("Dragon Quest (Japan)", names)
+
+    def test_japan_only_game_not_in_split1(self):
+        root1, _ = self._parse_split(["Sonic (USA)", "Dragon Quest (Japan)"])
+        names = {g.get("name") for g in root1.findall("game")}
+        self.assertNotIn("Dragon Quest (Japan)", names)
+
+    def test_japan_english_paren_goes_to_split1(self):
+        root1, root2 = self._parse_split(["Dragon Quest (Japan) (En)"])
+        self.assertIn("Dragon Quest (Japan) (En)", {g.get("name") for g in root1.findall("game")})
+        self.assertEqual(root2.findall("game"), [])
+
+    def test_japan_english_comma_goes_to_split1(self):
+        root1, root2 = self._parse_split(["Final Fantasy (Japan) (En,Fr)"])
+        self.assertIn("Final Fantasy (Japan) (En,Fr)", {g.get("name") for g in root1.findall("game")})
+        self.assertEqual(root2.findall("game"), [])
+
+    def test_japan_other_language_goes_to_split2(self):
+        root1, root2 = self._parse_split(["Game (Japan) (Ja)"])
+        self.assertEqual(root1.findall("game"), [])
+        self.assertIn("Game (Japan) (Ja)", {g.get("name") for g in root2.findall("game")})
+
+    def test_all_games_preserved_across_both_splits(self):
+        games = [
+            "Sonic (USA)",
+            "Dragon Quest (Japan)",
+            "Final Fantasy (Japan) (En)",
+            "Zelda (Europe)",
+            "Castlevania (Japan) (Ja)",
+        ]
+        root1, root2 = self._parse_split(games)
+        all_names = {g.get("name") for g in root1.findall("game")} | {g.get("name") for g in root2.findall("game")}
+        self.assertEqual(all_names, set(games))
+
+    def test_no_game_appears_in_both_splits(self):
+        games = [
+            "Sonic (USA)",
+            "Dragon Quest (Japan)",
+            "Final Fantasy (Japan) (En)",
+        ]
+        root1, root2 = self._parse_split(games)
+        names1 = {g.get("name") for g in root1.findall("game")}
+        names2 = {g.get("name") for g in root2.findall("game")}
+        self.assertEqual(names1 & names2, set())
+
+    def test_rom_entries_preserved_in_split1(self):
+        root1, _ = self._parse_split(["Sonic (USA)"])
+        rom = root1.find("game/rom")
+        self.assertIsNotNone(rom)
+        for attr in ("crc", "md5", "sha1", "sha256", "size", "status"):
+            self.assertIsNotNone(rom.get(attr))
+
+    def test_rom_entries_preserved_in_split2(self):
+        _, root2 = self._parse_split(["Dragon Quest (Japan)"])
+        rom = root2.find("game/rom")
+        self.assertIsNotNone(rom)
+        for attr in ("crc", "md5", "sha1", "sha256", "size", "status"):
+            self.assertIsNotNone(rom.get(attr))
+
+    def test_empty_dat_produces_no_games_in_either_split(self):
+        root1, root2 = self._parse_split([])
+        self.assertEqual(root1.findall("game"), [])
+        self.assertEqual(root2.findall("game"), [])
+
+    def test_all_non_japan_split2_is_empty(self):
+        _, root2 = self._parse_split(["Sonic (USA)", "Mario (Europe)"])
+        self.assertEqual(root2.findall("game"), [])
+
+    def test_all_japan_only_split1_has_no_japan_only(self):
+        root1, _ = self._parse_split(["Game A (Japan)", "Game B (Japan)"])
+        self.assertEqual(root1.findall("game"), [])
+
+
+class TestPrune(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.tmpdir = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _make_dat(self, games: list[str]) -> Path:
+        path = self.tmpdir / "input.dat"
+        root = ET.Element("datafile")
+        header = ET.SubElement(root, "header")
+        ET.SubElement(header, "name").text = "Test"
+        ET.SubElement(header, "description").text = "Test"
+        ET.SubElement(header, "version").text = "20260101-000000"
+        ET.SubElement(header, "author").text = "Test"
+        ET.SubElement(header, "homepage").text = "Test"
+        clrmamepro = ET.SubElement(header, "clrmamepro")
+        clrmamepro.set("forcenodump", "required")
+        for game_name in games:
+            game = ET.SubElement(root, "game")
+            game.set("name", game_name)
+            ET.SubElement(game, "description").text = game_name
+            rom = ET.SubElement(game, "rom")
+            rom.set("name", f"{game_name}.rom")
+            rom.set("size", "0")
+            rom.set("crc", "00000000")
+            rom.set("md5", "d41d8cd98f00b204e9800998ecf8427e")
+            rom.set("sha1", "da39a3ee5e6b4b0d3255bfef95601890afd80709")
+            rom.set("sha256", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+            rom.set("status", "verified")
+        ET.indent(root, space="\t")
+        path.write_text('<?xml version="1.0"?>\n' + ET.tostring(root, encoding="unicode") + "\n")
+        return path
+
+    def _make_folder(self, filenames: list[str]) -> Path:
+        folder = self.tmpdir / "roms"
+        folder.mkdir()
+        for name in filenames:
+            (folder / name).write_bytes(b"data")
+        return folder
+
+    def _prune(self, games: list[str], filenames: list[str]) -> tuple[ET.Element, int, int]:
+        dat = self._make_dat(games)
+        folder = self._make_folder(filenames)
+        xml, kept, removed = SimpleDat.prune(folder, dat)
+        return ET.parse(io.StringIO(xml)).getroot(), kept, removed
+
+    def test_matching_game_kept(self):
+        root, _, _ = self._prune(["Zelda"], ["Zelda.sfc"])
+        self.assertEqual(len(root.findall("game")), 1)
+        self.assertEqual(root.find("game").get("name"), "Zelda")
+
+    def test_missing_game_removed(self):
+        root, _, _ = self._prune(["Zelda", "Mario"], ["Zelda.sfc"])
+        names = {g.get("name") for g in root.findall("game")}
+        self.assertNotIn("Mario", names)
+
+    def test_counts_kept_and_removed(self):
+        _, kept, removed = self._prune(["Zelda", "Mario", "Sonic"], ["Zelda.sfc", "Sonic.sfc"])
+        self.assertEqual(kept, 2)
+        self.assertEqual(removed, 1)
+
+    def test_empty_folder_removes_all(self):
+        root, kept, removed = self._prune(["Zelda", "Mario"], [])
+        self.assertEqual(root.findall("game"), [])
+        self.assertEqual(kept, 0)
+        self.assertEqual(removed, 2)
+
+    def test_all_present_keeps_all(self):
+        root, kept, removed = self._prune(["Zelda", "Mario"], ["Zelda.sfc", "Mario.sfc"])
+        self.assertEqual(len(root.findall("game")), 2)
+        self.assertEqual(kept, 2)
+        self.assertEqual(removed, 0)
+
+    def test_matching_is_by_stem_not_extension(self):
+        root, _, _ = self._prune(["Zelda"], ["Zelda.zip"])
+        self.assertEqual(len(root.findall("game")), 1)
+
+    def test_header_preserved(self):
+        root, _, _ = self._prune(["Zelda"], ["Zelda.sfc"])
+        self.assertEqual(root.find("header/name").text, "Test")
+
+    def test_output_is_valid_xml(self):
+        dat = self._make_dat(["Zelda"])
+        folder = self._make_folder(["Zelda.sfc"])
+        xml, _, _ = SimpleDat.prune(folder, dat)
+        self.assertTrue(xml.startswith('<?xml version="1.0"?>'))
+        ET.parse(io.StringIO(xml))
+
+    def test_rom_entries_preserved(self):
+        root, _, _ = self._prune(["Zelda"], ["Zelda.sfc"])
+        rom = root.find("game/rom")
+        self.assertIsNotNone(rom)
+        for attr in ("crc", "md5", "sha1", "sha256", "size", "status"):
+            self.assertIsNotNone(rom.get(attr))
+
+    def test_empty_dat_no_games(self):
+        root, kept, removed = self._prune([], ["Zelda.sfc"])
+        self.assertEqual(root.findall("game"), [])
+        self.assertEqual(kept, 0)
+        self.assertEqual(removed, 0)
 
 
 if __name__ == "__main__":
